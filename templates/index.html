@@ -5,91 +5,575 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Generador de Códigos QR</title>
     <style>
+        /* ===== RESET & BASE ===== */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --primary:   #6c47ff;
+            --primary-2: #a855f7;
+            --accent:    #22d3ee;
+            --bg:        #0f0e17;
+            --surface:   #1a1a2e;
+            --surface-2: #252545;
+            --border:    rgba(255,255,255,0.08);
+            --text:      #e2e8f0;
+            --muted:     #94a3b8;
+            --success:   #10b981;
+            --error:     #ef4444;
+            --radius:    16px;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: #f4f7f6;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            color: #333;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            text-align: center;
-            max-width: 500px;
-            width: 90%;
-        }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 20px;
-        }
-        p {
-            color: #7f8c8d;
-            margin-bottom: 30px;
-        }
-        form {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            overflow-x: hidden;
         }
-        .input-group {
-            text-align: left;
+
+        /* ===== BACKGROUND BLOBS ===== */
+        body::before, body::after {
+            content: '';
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.15;
+            pointer-events: none;
         }
-        label {
-            font-weight: bold;
-            color: #555;
+        body::before {
+            width: 500px; height: 500px;
+            background: var(--primary);
+            top: -150px; left: -150px;
+        }
+        body::after {
+            width: 400px; height: 400px;
+            background: var(--accent);
+            bottom: -100px; right: -100px;
+        }
+
+        /* ===== HEADER ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 16px;
+            background: rgba(108, 71, 255, 0.15);
+            border: 1px solid rgba(108, 71, 255, 0.35);
+            border-radius: 100px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary-2);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+        .badge-dot {
+            width: 6px; height: 6px;
+            background: var(--primary-2);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        h1 {
+            font-size: clamp(28px, 5vw, 48px);
+            font-weight: 800;
+            line-height: 1.15;
+            background: linear-gradient(135deg, #fff 20%, var(--primary-2) 60%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+        }
+        .subtitle {
+            color: var(--muted);
+            font-size: 16px;
+            max-width: 420px;
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+
+        /* ===== CARD ===== */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: calc(var(--radius) * 1.5);
+            padding: 36px;
+            width: 100%;
+            max-width: 540px;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04) inset;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* ===== STEP INDICATOR ===== */
+        .steps {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            margin-bottom: 32px;
+        }
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+        .step:not(:last-child)::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+            margin: 0 8px;
+        }
+        .step-num {
+            width: 28px; height: 28px;
+            border-radius: 50%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--muted);
+            flex-shrink: 0;
+            transition: all 0.3s;
+        }
+        .step-label {
+            font-size: 12px;
+            color: var(--muted);
+            white-space: nowrap;
+            transition: color 0.3s;
+        }
+        .step.active .step-num {
+            background: linear-gradient(135deg, var(--primary), var(--primary-2));
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 0 16px rgba(108,71,255,0.4);
+        }
+        .step.active .step-label { color: var(--text); }
+        .step.done .step-num { background: var(--success); border-color: transparent; color: #fff; }
+
+        /* ===== DROP ZONES ===== */
+        .dropzone {
+            border: 2px dashed rgba(255,255,255,0.12);
+            border-radius: var(--radius);
+            padding: 28px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 16px;
+        }
+        .dropzone:hover, .dropzone.over {
+            border-color: var(--primary);
+            background: rgba(108,71,255,0.07);
+            transform: translateY(-1px);
+        }
+        .dropzone.has-file {
+            border-color: var(--success);
+            background: rgba(16,185,129,0.07);
+        }
+        .dropzone input[type="file"] {
+            position: absolute; inset: 0;
+            opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .dz-icon {
+            font-size: 32px;
+            margin-bottom: 10px;
             display: block;
+        }
+        .dz-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 4px;
+        }
+        .dz-hint {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .dz-filename {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--success);
+            margin-top: 6px;
+        }
+        .dz-filename svg { flex-shrink: 0; }
+        .dropzone.has-file .dz-filename { display: flex; }
+        .dropzone.has-file .dz-hint { display: none; }
+
+        /* ===== DIVIDER ===== */
+        .divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 24px;
+        }
+        .divider::before, .divider::after {
+            content: ''; flex: 1;
+            height: 1px; background: var(--border);
+        }
+
+        /* ===== SUBMIT BUTTON ===== */
+        .btn-generate {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 50%, #ec4899 100%);
+            background-size: 200% 200%;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+            letter-spacing: 0.02em;
+        }
+        .btn-generate:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 32px rgba(108,71,255,0.45);
+            background-position: right center;
+        }
+        .btn-generate:active:not(:disabled) { transform: translateY(0); }
+        .btn-generate:disabled {
+            opacity: 0.5; cursor: not-allowed; transform: none;
+        }
+        .btn-generate .btn-text { transition: opacity 0.2s; }
+        .btn-generate .btn-loading {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-generate.loading .btn-text { display: none; }
+        .btn-generate.loading .btn-loading { display: flex; }
+
+        /* Spinner */
+        .spinner {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ===== PROGRESS BAR ===== */
+        .progress-wrap {
+            display: none;
+            margin-top: 20px;
+        }
+        .progress-wrap.visible { display: block; }
+        .progress-bar-bg {
+            background: var(--surface-2);
+            border-radius: 100px;
+            height: 6px;
+            overflow: hidden;
             margin-bottom: 8px;
         }
-        input[type="file"] {
-            border: 2px dashed #bdc3c7;
-            padding: 20px;
-            border-radius: 6px;
-            width: 100%;
-            box-sizing: border-box;
-            cursor: pointer;
+        .progress-bar-fill {
+            height: 100%;
+            border-radius: 100px;
+            background: linear-gradient(90deg, var(--primary), var(--accent));
+            width: 0%;
+            transition: width 0.4s ease;
         }
-        button {
-            background: linear-gradient(45deg, #3498db, #8e44ad);
-            color: white;
-            border: none;
-            padding: 15px;
-            border-radius: 6px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+        .progress-label {
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
         }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+
+        /* ===== TOAST / ALERT ===== */
+        .toast {
+            display: none;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-top: 16px;
+        }
+        .toast.error { display: flex; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+        .toast.success { display: flex; background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); color: #6ee7b7; }
+
+        /* ===== TIPS ===== */
+        .tips {
+            margin-top: 28px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .tip {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 12px;
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .tip strong { display: block; color: var(--text); font-size: 13px; margin-bottom: 2px; }
+
+        /* ===== FOOTER ===== */
+        .footer {
+            margin-top: 32px;
+            font-size: 12px;
+            color: var(--muted);
+            text-align: center;
+            opacity: 0.6;
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            .card { padding: 24px 20px; }
+            .tips { grid-template-columns: 1fr; }
+            .step-label { display: none; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Generador de Códigos QR</h1>
-        <p>Sube tus archivos para crear códigos QR personalizados con tu logo en segundos.</p>
-        
-        <!-- El formulario envía los archivos a la ruta '/generate' usando el método POST -->
-        <form action="/generate" method="post" enctype="multipart/form-data">
-            <div class="input-group">
-                <label for="csv_file">1. Sube tu archivo CSV:</label>
+
+    <!-- Background grid texture -->
+    <svg style="position:fixed;inset:0;width:100%;height:100%;opacity:.03;pointer-events:none;z-index:0" xmlns="http://www.w3.org/2000/svg">
+        <defs><pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" stroke-width="0.5"/>
+        </pattern></defs>
+        <rect width="100%" height="100%" fill="url(#g)"/>
+    </svg>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="badge"><span class="badge-dot"></span> QR Generator Pro</div>
+        <h1>Generador de<br>Códigos QR</h1>
+        <p class="subtitle">Crea códigos QR personalizados con tu logo en segundos. Sube tu CSV y tu imagen.</p>
+    </header>
+
+    <!-- Main card -->
+    <div class="card">
+
+        <!-- Steps -->
+        <div class="steps">
+            <div class="step active" id="step1">
+                <div class="step-num">1</div>
+                <span class="step-label">CSV</span>
+            </div>
+            <div class="step" id="step2">
+                <div class="step-num">2</div>
+                <span class="step-label">Logo</span>
+            </div>
+            <div class="step" id="step3">
+                <div class="step-num">3</div>
+                <span class="step-label">Generar</span>
+            </div>
+        </div>
+
+        <form id="qr-form" action="/generate" method="post" enctype="multipart/form-data">
+
+            <!-- CSV Drop Zone -->
+            <div class="dropzone" id="dz-csv">
                 <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                <span class="dz-icon">📄</span>
+                <div class="dz-label">Archivo CSV de acreditaciones</div>
+                <div class="dz-hint">Haz clic o arrastra tu archivo .csv aquí</div>
+                <div class="dz-filename">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="dz-name"></span>
+                </div>
             </div>
-            
-            <div class="input-group">
-                <label for="logo_file">2. Sube tu logo (PNG o JPG):</label>
+
+            <!-- Logo Drop Zone -->
+            <div class="dropzone" id="dz-logo">
                 <input type="file" id="logo_file" name="logo_file" accept="image/*" required>
+                <span class="dz-icon">🖼️</span>
+                <div class="dz-label">Logo (PNG o JPG)</div>
+                <div class="dz-hint">Haz clic o arrastra tu imagen aquí</div>
+                <div class="dz-filename">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="dz-name"></span>
+                </div>
             </div>
-            
-            <button type="submit">✨ Generar y Descargar QR</button>
+
+            <div class="divider">Todo listo · Genera tu lote de QRs</div>
+
+            <!-- Submit -->
+            <button type="submit" class="btn-generate" id="btn-gen" disabled>
+                <span class="btn-text">✨ &nbsp;Generar y Descargar QRs</span>
+                <span class="btn-loading">
+                    <span class="spinner"></span> Generando códigos…
+                </span>
+            </button>
+
+            <!-- Progress bar (simulated) -->
+            <div class="progress-wrap" id="progress-wrap">
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progress-fill"></div>
+                </div>
+                <div class="progress-label" id="progress-label">Procesando registros…</div>
+            </div>
+
+            <!-- Alert toast -->
+            <div class="toast" id="toast"></div>
+
         </form>
     </div>
+
+    <!-- Tips -->
+    <div class="tips">
+        <div class="tip">
+            <strong>📋 Formato CSV</strong>
+            Dos columnas: <em>dato</em> y <em>nombre_archivo</em>. Primera fila = cabecera.
+        </div>
+        <div class="tip">
+            <strong>🖼️ Logo ideal</strong>
+            PNG con fondo transparente. Mínimo 200×200 px para mayor calidad.
+        </div>
+        <div class="tip">
+            <strong>⚡ Lote grande</strong>
+            Para más de 500 registros la generación puede tardar unos segundos extra.
+        </div>
+        <div class="tip">
+            <strong>📦 Descarga ZIP</strong>
+            Recibirás un archivo <em>.zip</em> con todos los QRs listos para usar.
+        </div>
+    </div>
+
+    <footer class="footer">Generador de QR · acreditaciones · v2.0</footer>
+
+    <script>
+    (function () {
+        const form    = document.getElementById('qr-form');
+        const btnGen  = document.getElementById('btn-gen');
+        const toast   = document.getElementById('toast');
+        const progWrap = document.getElementById('progress-wrap');
+        const progFill = document.getElementById('progress-fill');
+        const progLabel = document.getElementById('progress-label');
+
+        let csvReady = false, logoReady = false;
+
+        function updateBtn() {
+            btnGen.disabled = !(csvReady && logoReady);
+        }
+
+        // Update steps indicator
+        function updateSteps() {
+            const s1 = document.getElementById('step1');
+            const s2 = document.getElementById('step2');
+            const s3 = document.getElementById('step3');
+
+            if (csvReady)  { s1.classList.remove('active'); s1.classList.add('done'); }
+            else           { s1.classList.add('active'); s1.classList.remove('done'); }
+
+            if (logoReady) { s2.classList.remove('active'); s2.classList.add('done'); }
+            else if (csvReady) { s2.classList.add('active'); s2.classList.remove('done'); }
+
+            if (csvReady && logoReady) { s3.classList.add('active'); }
+            else { s3.classList.remove('active', 'done'); }
+        }
+
+        // Wire a dropzone
+        function wireDropzone(dzId, inputId, readyFn) {
+            const dz    = document.getElementById(dzId);
+            const input = document.getElementById(inputId);
+            const nameEl = dz.querySelector('.dz-name');
+
+            input.addEventListener('change', () => {
+                if (input.files.length) {
+                    nameEl.textContent = input.files[0].name;
+                    dz.classList.add('has-file');
+                    readyFn(true);
+                } else {
+                    dz.classList.remove('has-file');
+                    readyFn(false);
+                }
+                updateBtn();
+                updateSteps();
+            });
+
+            // Drag events
+            dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('over'); });
+            dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+            dz.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dz.classList.remove('over');
+                const files = e.dataTransfer.files;
+                if (files.length) {
+                    const dt = new DataTransfer();
+                    dt.items.add(files[0]);
+                    input.files = dt.files;
+                    input.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        wireDropzone('dz-csv',  'csv_file',  (v) => { csvReady  = v; });
+        wireDropzone('dz-logo', 'logo_file', (v) => { logoReady = v; });
+
+        // Simulated progress during upload
+        function startProgress() {
+            progWrap.classList.add('visible');
+            progFill.style.width = '0%';
+            let pct = 0;
+            const steps = [
+                { target: 35, speed: 60, label: 'Leyendo CSV…' },
+                { target: 65, speed: 80, label: 'Generando QRs…' },
+                { target: 90, speed: 120, label: 'Incrustando logos…' },
+                { target: 97, speed: 200, label: 'Empaquetando ZIP…' },
+            ];
+            let si = 0;
+            const tick = setInterval(() => {
+                if (si >= steps.length) { clearInterval(tick); return; }
+                const s = steps[si];
+                if (pct < s.target) {
+                    pct += 1;
+                    progFill.style.width = pct + '%';
+                    progLabel.textContent = s.label;
+                } else { si++; }
+            }, 60);
+        }
+
+        // Form submit
+        form.addEventListener('submit', (e) => {
+            toast.className = 'toast';  // hide
+            btnGen.classList.add('loading');
+            btnGen.disabled = true;
+            startProgress();
+
+            // We let the default form submit proceed (multipart POST)
+            // Button stays loading; page will reload on response
+        });
+
+        // Show error if server returned one (detect via URL hash)
+        if (window.location.search.includes('error')) {
+            showToast('error', '⚠️ Ocurrió un error al generar los QRs. Verifica el formato de tu CSV.');
+        }
+
+        function showToast(type, msg) {
+            toast.className = 'toast ' + type;
+            toast.textContent = msg;
+        }
+    })();
+    </script>
 </body>
 </html>
